@@ -9,6 +9,7 @@ import {
   Typography,
   useTheme,
 } from "@mui/material";
+import { alpha } from "@mui/material/styles";
 import PropTypes from "prop-types";
 import React, { useCallback, useMemo, useState } from "react";
 import Editor from "@monaco-editor/react";
@@ -153,17 +154,23 @@ const useColumns = () =>
               }
             >
               <Box
-                sx={{
+                sx={(theme) => ({
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
                   width: 18,
                   height: 18,
                   borderRadius: "50%",
-                  backgroundColor: "warning.lighter",
-                  color: "warning.dark",
+                  backgroundColor: alpha(
+                    theme.palette.warning.main,
+                    theme.palette.mode === "dark" ? 0.24 : 0.16,
+                  ),
+                  color:
+                    theme.palette.mode === "dark"
+                      ? theme.palette.warning.light
+                      : theme.palette.warning.dark,
                   cursor: "help",
-                }}
+                })}
                 data-testid="usage-partial-input-warning"
               >
                 <Iconify
@@ -768,25 +775,43 @@ const PartialInputWarningDetails = ({ warnings }) => {
 
   return (
     <Box
-      sx={{
+      sx={(theme) => ({
         mt: 1.5,
         p: 1.25,
         borderRadius: "8px",
         border: "1px solid",
-        borderColor: "warning.light",
-        bgcolor: "warning.lighter",
-      }}
+        borderColor: alpha(
+          theme.palette.warning.main,
+          theme.palette.mode === "dark" ? 0.4 : 0.3,
+        ),
+        bgcolor: alpha(
+          theme.palette.warning.main,
+          theme.palette.mode === "dark" ? 0.12 : 0.08,
+        ),
+      })}
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, mb: 0.75 }}>
         <Iconify
           icon="material-symbols:warning-rounded"
           width={14}
-          sx={{ color: "warning.dark", flexShrink: 0 }}
+          sx={(theme) => ({
+            color:
+              theme.palette.mode === "dark"
+                ? theme.palette.warning.light
+                : theme.palette.warning.dark,
+            flexShrink: 0,
+          })}
         />
         <Typography
           variant="caption"
           fontWeight={600}
-          sx={{ fontSize: "11px", color: "warning.dark" }}
+          sx={(theme) => ({
+            fontSize: "11px",
+            color:
+              theme.palette.mode === "dark"
+                ? theme.palette.warning.light
+                : theme.palette.warning.dark,
+          })}
         >
           Partial input warning
         </Typography>

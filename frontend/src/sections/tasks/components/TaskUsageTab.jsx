@@ -617,7 +617,13 @@ const PartialInputWarningDetails = ({ warnings }) => {
         <Typography
           variant="caption"
           fontWeight={600}
-          sx={{ fontSize: "11px", color: "warning.dark" }}
+          sx={(t) => ({
+            fontSize: "11px",
+            color:
+              t.palette.mode === "dark"
+                ? t.palette.warning.light
+                : t.palette.warning.dark,
+          })}
         >
           Partial input warning
         </Typography>
