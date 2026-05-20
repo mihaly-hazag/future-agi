@@ -39,6 +39,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 logger = structlog.get_logger(__name__)
+from futureagi.tracer.services.clickhouse.query_builders.base import NIL_UUID
 from model_hub.models.choices import AnnotationTypeChoices
 from model_hub.models.develop_annotations import AnnotationsLabels
 from model_hub.models.score import Score
@@ -5458,8 +5459,7 @@ class TraceView(BaseModelViewSetMixin, ModelViewSet):
                 "provider": row.get("provider"),
                 "session_id": (
                     None
-                    if str(row.get("trace_session_id", ""))
-                    == "00000000-0000-0000-0000-000000000000"
+                    if str(row.get("trace_session_id", "")) == NIL_UUID
                     else row.get("trace_session_id")
                 ),
                 "tags": row.get("trace_tags") or [],
