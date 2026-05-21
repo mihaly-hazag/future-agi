@@ -222,6 +222,9 @@ export const useRunDeepAnalysis = () => {
         const key = KEYS.rootCause(variables.clusterId, variables.traceId);
         const previous = queryClient.getQueryData(key);
         const previousResult = previous?.data?.result;
+        // Keys are camelCase here — DRF's CamelCaseRenderer rewrites the
+        // backend's snake_case before it lands in the axios response, and
+        // every other reader of this cache expects camelCase.
         queryClient.setQueryData(key, {
           ...(previous ?? {}),
           data: {
@@ -229,11 +232,11 @@ export const useRunDeepAnalysis = () => {
             result: {
               ...(previousResult ?? {}),
               status: dispatched.status,
-              trace_id: dispatched.trace_id ?? previousResult?.trace_id,
+              traceId: dispatched.traceId ?? previousResult?.traceId,
               // Wipe stale findings when a fresh run is dispatched; the
               // poll will repopulate them once Judge submits results.
               ...(dispatched.status === "running"
-                ? { root_causes: [], recommendations: [], immediate_fix: null }
+                ? { rootCauses: [], recommendations: [], immediateFix: null }
                 : {}),
             },
           },
