@@ -210,21 +210,23 @@ export const useRunDeepAnalysis = () => {
         force,
       }),
     onSuccess: (res, variables) => {
-      // Mirror the dispatch response into the rootCause cache so the
-      // button + refetchInterval predicate see `status: running`
-      // immediately. Without this, there's a ~200ms window after the POST
-      // resolves where `isDispatching` is false but the GET refetch hasn't
-      // returned yet — the predicate evaluates against the stale `idle`
-      // data, polling never arms, and the button flickers back to "Run
-      // Deep Analysis" before snapping to "Running…".
       const dispatched = res?.data?.result;
       if (dispatched?.status) {
         const key = KEYS.rootCause(variables.clusterId, variables.traceId);
         const previous = queryClient.getQueryData(key);
         const previousResult = previous?.data?.result;
-        // Keys are camelCase here — DRF's CamelCaseRenderer rewrites the
-        // backend's snake_case before it lands in the axios response, and
-        // every other reader of this cache expects camelCase.
+        const traceIdValue =
+          dispatched.trace_id ?? previousResult?.trace_id ?? null;
+        const wipeOnRunning =
+          dispatched.status === "running"
+            ? {
+                root_causes: [],
+                rootCauses: [],
+                recommendations: [],
+                immediate_fix: null,
+                immediateFix: null,
+              }
+            : {};
         queryClient.setQueryData(key, {
           ...(previous ?? {}),
           data: {
@@ -232,18 +234,13 @@ export const useRunDeepAnalysis = () => {
             result: {
               ...(previousResult ?? {}),
               status: dispatched.status,
-              traceId: dispatched.traceId ?? previousResult?.traceId,
-              // Wipe stale findings when a fresh run is dispatched; the
-              // poll will repopulate them once Judge submits results.
-              ...(dispatched.status === "running"
-                ? { rootCauses: [], recommendations: [], immediateFix: null }
-                : {}),
+              trace_id: traceIdValue,
+              traceId: traceIdValue,
+              ...wipeOnRunning,
             },
           },
         });
       }
-      // Keep the invalidate as a safety net in case the BE state diverges
-      // from what dispatch reported.
       queryClient.invalidateQueries({
         queryKey: KEYS.rootCause(variables.clusterId, variables.traceId),
       });

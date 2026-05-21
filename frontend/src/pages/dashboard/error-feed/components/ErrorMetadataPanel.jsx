@@ -1550,11 +1550,6 @@ export default function ErrorMetadataPanel({ error }) {
         </Section>
 
         {/* ── AI Metadata ── */}
-        {/* Trace-scoped fields (model, version, project, evalScore, traceId)
-            come from `sidebar.aiMetadata` so they re-render when the user
-            switches traces. Cluster-scoped fields (agent, pipeline,
-            connector) stay on `error.*`. Fall back to `error.*` only while
-            the sidebar query is still loading its first response. */}
         <Section title="AI Metadata">
           <Stack gap={0.5}>
             <MetaRow
