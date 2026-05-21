@@ -247,6 +247,13 @@ const TracingTestMode = React.forwardRef(
       // candidate paths immediately, regardless of drill-in depth.
       // When null/empty, falls back to today's walked-detail behaviour.
       pickerSourceColumns = null,
+      // When true, the mapping Autocomplete accepts arbitrary typed values
+      // (freeSolo) instead of being locked to `fieldNames`. The BE resolver
+      // (_walk_dotted_path) already handles arbitrary depths safely across
+      // spans, traces, and sessions. Currently set by EvalPickerConfigFull
+      // only for source="task" — other surfaces stay locked until each
+      // one's resolver is audited.
+      allowCustomFieldPath = false,
     },
     ref,
   ) => {
@@ -1249,7 +1256,10 @@ const TracingTestMode = React.forwardRef(
             </Typography>
             <Tabs
               value={rowType}
-              onChange={(_, val) => setRowType(val)}
+              onChange={(_, val) => {
+                setRowType(val);
+                setMapping({});
+              }}
               variant="standard"
               scrollButtons={false}
               TabIndicatorProps={{ style: { display: "none" } }}
@@ -1337,6 +1347,7 @@ const TracingTestMode = React.forwardRef(
               setValue={internalFilterForm.setValue}
               projectId={selectedProjectId}
               isSimulator={isVoiceProject}
+              rowType={rowType}
             />
           </Box>
         )}
@@ -1754,6 +1765,7 @@ const TracingTestMode = React.forwardRef(
                   />
                   <Autocomplete
                     size="small"
+                    freeSolo={allowCustomFieldPath}
                     options={
                       mapping[variable] &&
                       !fieldNames.includes(mapping[variable])
@@ -1767,6 +1779,18 @@ const TracingTestMode = React.forwardRef(
                         [variable]: val || "",
                       }))
                     }
+                    {...(allowCustomFieldPath
+                      ? {
+                          inputValue: mapping[variable] || "",
+                          onInputChange: (_, val, reason) => {
+                            if (reason === "reset") return;
+                            setMapping((prev) => ({
+                              ...prev,
+                              [variable]: val || "",
+                            }));
+                          },
+                        }
+                      : {})}
                     openOnFocus
                     autoHighlight
                     selectOnFocus
@@ -1777,7 +1801,11 @@ const TracingTestMode = React.forwardRef(
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        placeholder="Search column..."
+                        placeholder={
+                          allowCustomFieldPath
+                            ? "Search or type a path (e.g. attributes.input.value)"
+                            : "Search column..."
+                        }
                         InputProps={{
                           ...params.InputProps,
                           sx: {
@@ -1886,6 +1914,7 @@ TracingTestMode.propTypes = {
   isComposite: PropTypes.bool,
   compositeAdhocConfig: PropTypes.object,
   localFilters: PropTypes.array,
+  allowCustomFieldPath: PropTypes.bool,
 };
 
 export default TracingTestMode;

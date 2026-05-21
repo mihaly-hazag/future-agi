@@ -336,6 +336,18 @@ def run_eval_func(
 
             _run_kwargs = preprocess_inputs(template.name, _run_kwargs)
 
+        # Apply the shared empty-input rules so the playground (and
+        # every other caller of run_eval_func — composite children,
+        # protect, simulation) behaves the same way as the dataset path.
+        # The validator also normalizes kwargs for custom evals so the
+        # underlying engine doesn't raise "Missing required key" when
+        # the caller omits unmapped variables.
+        from model_hub.utils.eval_input_validation import validate_eval_inputs
+
+        partial_input_warning, _run_kwargs = validate_eval_inputs(
+            template, _run_kwargs
+        )
+
         eval_result = eval_instance.run(**_run_kwargs)
         end_time = time.time()
 
@@ -356,6 +368,8 @@ def run_eval_func(
                 else config.get("output", "choices")
             ),
         }
+        if partial_input_warning:
+            response["warnings"] = [partial_input_warning]
         # logger.info(f"response*******: {response}")
 
         metadata = response.get("metadata")
@@ -372,16 +386,24 @@ def run_eval_func(
         if api_call_log_row is None:
             return response
         config_dict = json.loads(api_call_log_row.config)
+        output_payload = {"output": value, "reason": response["reason"]}
+        # Mirror the dataset path: propagate partial-input warnings into
+        # the API call log so the eval usage view (which reads APICallLog)
+        # can surface them alongside the eval's output.
+        if response.get("warnings"):
+            output_payload["warnings"] = response["warnings"]
         config_dict.update(
             {
-                "output": {"output": value, "reason": response["reason"]},
+                "output": output_payload,
                 "input": response["data"],
             }
         )
         api_call_log_row.input_token_count = (
             metadata.get("usage", {}).get("prompt_tokens") or 0 if metadata else 0
         )
-        api_call_log_row.config = json.dumps(config_dict)
+        # default=str so trace/span values mapped into inputs (Decimal from
+        # clickhouse-driver, datetime, UUID) don't blow up the usage logger.
+        api_call_log_row.config = json.dumps(config_dict, default=str)
         api_call_log_row.status = APICallStatusChoices.SUCCESS.value
         api_call_log_row.save()
 
@@ -454,6 +476,10 @@ def run_eval_func(
         output["metadata"] = response.get("metadata")
         output["output_type"] = template.config.get("output")
         output["log_id"] = str(api_call_log_row.log_id)
+        # Pass partial-input warning through to the playground UI so the
+        # yellow ⚠ badge can render alongside the result.
+        if response.get("warnings"):
+            output["warnings"] = response["warnings"]
 
         if error_localizer:
             from model_hub.tasks.user_evaluation import (
@@ -487,7 +513,7 @@ def run_eval_func(
                         "required_keys": list(mappings.keys()),
                     }
                 )
-                api_call_log_row.config = json.dumps(current_config)
+                api_call_log_row.config = json.dumps(current_config, default=str)
                 api_call_log_row.save()
         except Exception as exc:
             logger.exception(f"Error updating api call log row status: {str(exc)}")
@@ -597,7 +623,7 @@ def process_eval_for_single_row(
             data_type = col_map.get(str(base_col_id)) if base_col_id else None
             input_types[key] = data_type if data_type in ["image", "audio"] else "text"
         config_dict.update({"input_data_types": input_types})
-        api_call_log_row.config = json.dumps(config_dict)
+        api_call_log_row.config = json.dumps(config_dict, default=str)
         api_call_log_row.status = APICallStatusChoices.SUCCESS.value
         api_call_log_row.save()
 
@@ -622,7 +648,7 @@ def process_eval_for_single_row(
             api_call_log_row.status = APICallStatusChoices.ERROR.value
             current_config = json.loads(api_call_log_row.config)
             current_config.update({"output": {"output": None, "reason": str(e)}})
-            api_call_log_row.config = json.dumps(current_config)
+            api_call_log_row.config = json.dumps(current_config, default=str)
             api_call_log_row.save()
         except Exception:
             pass
